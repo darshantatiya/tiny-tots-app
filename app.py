@@ -15,8 +15,9 @@ def init_connection():
     
     # This clever block checks if we are on the cloud or on your local computer
     if "gcp_service_account" in st.secrets:
-        # We are on Streamlit Cloud
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+     import json
+     creds_dict = json.loads(st.secrets["gcp_service_account"])
+     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     else:
         # We are on your local computer
         creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
