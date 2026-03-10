@@ -19,10 +19,10 @@ except Exception as e:
     st.error("Database connection failed. Please check your utils/database.py file.")
     st.stop()
 
-# Build the beautiful UI using Tabs
-tab1, tab2, tab3 = st.tabs(["👦 Student Info", "👪 Family Details", "💰 Fee Setup & Submit"])
-
+# THE FIX: Open the form FIRST, and put the tabs INSIDE the form
 with st.form("admission_form"):
+    
+    tab1, tab2, tab3 = st.tabs(["👦 Student Info", "👪 Family Details", "💰 Fee Setup"])
     
     with tab1:
         st.subheader("Student Details")
@@ -106,9 +106,9 @@ with st.form("admission_form"):
         
         status = st.selectbox("Current Status", ["Active", "Dropped", "Promoted"])
         
-        # Form Submit Button
-        st.markdown("---")
-        submitted = st.form_submit_button("💾 Save Admission Record", type="primary")
+    # The submit button is now safely inside the form, but outside the tabs
+    st.markdown("---")
+    submitted = st.form_submit_button("💾 Save Admission Record", type="primary", use_container_width=True)
 
 # --- Form Logic & Validation ---
 if submitted:
