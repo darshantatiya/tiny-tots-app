@@ -119,26 +119,35 @@ if submitted:
     elif len(f_contact) == 0 and len(m_contact) == 0:
         st.error("⚠️ Please provide at least one parent's contact number on Tab 2.")
     else:
-        with st.spinner("Encrypting and saving to database..."):
+        with st.spinner("Checking records and saving..."):
             
-            total_payable = base_tuition + book_fees + activity_fees + uniform_fees
-            if fee_plan == "Two Installments (+₹2000)":
-                total_payable += 2000
-                actual_tuition_saved = base_tuition + 2000
+            # --- THE NEW DUPLICATE CATCHER ---
+            # Grab all existing form numbers from the database
+            existing_forms = admissions_sheet.col_values(1)
+            
+            # Check if the typed form number is already in the list
+            if form_no in existing_forms[1:]:
+                st.error(f"⚠️ STOP! Form Number '{form_no}' is already assigned to another student. Please use a unique ID.")
             else:
-                actual_tuition_saved = base_tuition
-            
-            row_data = [
-                form_no, str(adm_date), class_name, child_name, nickname, str(dob), gender, nationality, pob, 
-                lang1, lang2, allergies, address, f_name, f_contact, f_email, f_qual, f_prof, f_desig, 
-                m_name, m_contact, m_email, m_qual, m_prof, m_desig, g1_name, g1_contact, g1_rel, 
-                g2_name, g2_contact, g2_rel, sib_name, sib_details, em1, em2, em3, ac_year, fee_plan, 
-                actual_tuition_saved, book_fees, activity_fees, uniform_fees, total_payable, status
-            ]
-            
-            try:
-                admissions_sheet.append_row(row_data)
-                st.success(f"✅ Successfully registered {child_name}! Total Fees Locked at ₹{total_payable}.")
-                st.balloons()
-            except Exception as e:
-                st.error(f"⚠️ Error saving to database: {e}")
+                # If it is unique, proceed with the math and saving
+                total_payable = base_tuition + book_fees + activity_fees + uniform_fees
+                if fee_plan == "Two Installments (+₹2000)":
+                    total_payable += 2000
+                    actual_tuition_saved = base_tuition + 2000
+                else:
+                    actual_tuition_saved = base_tuition
+                
+                row_data = [
+                    form_no, str(adm_date), class_name, child_name, nickname, str(dob), gender, nationality, pob, 
+                    lang1, lang2, allergies, address, f_name, f_contact, f_email, f_qual, f_prof, f_desig, 
+                    m_name, m_contact, m_email, m_qual, m_prof, m_desig, g1_name, g1_contact, g1_rel, 
+                    g2_name, g2_contact, g2_rel, sib_name, sib_details, em1, em2, em3, ac_year, fee_plan, 
+                    actual_tuition_saved, book_fees, activity_fees, uniform_fees, total_payable, status
+                ]
+                
+                try:
+                    admissions_sheet.append_row(row_data)
+                    st.success(f"✅ Successfully registered {child_name}! Total Fees Locked at ₹{total_payable}.")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"⚠️ Error saving to database: {e}")
