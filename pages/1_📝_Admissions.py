@@ -19,17 +19,15 @@ except Exception as e:
     st.error("Database connection failed. Please check your utils/database.py file.")
     st.stop()
 
-# THE FIX: Open the form FIRST, and put the tabs INSIDE the form
 with st.form("admission_form"):
     
-    tab1, tab2, tab3 = st.tabs(["👦 Student Info", "👪 Family Details", "💰 Fee Setup"])
+    tab1, tab2, tab3 = st.tabs(["1️⃣ Student Info", "2️⃣ Family Details", "3️⃣ Fee Setup & Submit"])
     
     with tab1:
         st.subheader("Student Details")
         col1, col2, col3 = st.columns(3)
         form_no = col1.text_input("Form No *")
         adm_date = col2.date_input("Admission Date")
-        # For now, we will hardcode a few classes until we build the Settings page
         class_name = col3.selectbox("Class *", ["Playgroup", "Nursery", "LKG", "UKG", "Prep Batch"])
         
         col4, col5, col6 = st.columns(3)
@@ -106,25 +104,23 @@ with st.form("admission_form"):
         
         status = st.selectbox("Current Status", ["Active", "Dropped", "Promoted"])
         
-    # The submit button is now safely inside the form, but outside the tabs
-    st.markdown("---")
-    submitted = st.form_submit_button("💾 Save Admission Record", type="primary", use_container_width=True)
+        # THE BUTTON IS NOW HIDDEN AT THE BOTTOM OF TAB 3
+        st.markdown("---")
+        submitted = st.form_submit_button("💾 Finalize & Save Admission Record", type="primary", use_container_width=True)
 
 # --- Form Logic & Validation ---
 if submitted:
-    # 1. Validation Checks
     if not form_no or not child_name or not address:
-        st.error("⚠️ Please fill in all mandatory fields (Form No, Child Name, Address).")
+        st.error("⚠️ Please fill in all mandatory fields (Form No, Child Name, Address) on Tab 1.")
     elif len(f_contact) > 0 and (len(f_contact) != 10 or not f_contact.isdigit()):
-        st.error("⚠️ Father's contact must be exactly 10 digits.")
+        st.error("⚠️ Father's contact on Tab 2 must be exactly 10 digits.")
     elif len(m_contact) > 0 and (len(m_contact) != 10 or not m_contact.isdigit()):
-        st.error("⚠️ Mother's contact must be exactly 10 digits.")
+        st.error("⚠️ Mother's contact on Tab 2 must be exactly 10 digits.")
     elif len(f_contact) == 0 and len(m_contact) == 0:
-        st.error("⚠️ Please provide at least one parent's contact number.")
+        st.error("⚠️ Please provide at least one parent's contact number on Tab 2.")
     else:
         with st.spinner("Encrypting and saving to database..."):
             
-            # 2. Auto-Math: Calculate Total Payable Fees
             total_payable = base_tuition + book_fees + activity_fees + uniform_fees
             if fee_plan == "Two Installments (+₹2000)":
                 total_payable += 2000
@@ -132,7 +128,6 @@ if submitted:
             else:
                 actual_tuition_saved = base_tuition
             
-            # 3. Compile the exact 44 columns for Google Sheets
             row_data = [
                 form_no, str(adm_date), class_name, child_name, nickname, str(dob), gender, nationality, pob, 
                 lang1, lang2, allergies, address, f_name, f_contact, f_email, f_qual, f_prof, f_desig, 
@@ -141,7 +136,6 @@ if submitted:
                 actual_tuition_saved, book_fees, activity_fees, uniform_fees, total_payable, status
             ]
             
-            # 4. Push to Google Sheets
             try:
                 admissions_sheet.append_row(row_data)
                 st.success(f"✅ Successfully registered {child_name}! Total Fees Locked at ₹{total_payable}.")
