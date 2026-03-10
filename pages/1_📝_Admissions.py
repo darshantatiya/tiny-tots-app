@@ -3,7 +3,6 @@ from datetime import datetime
 import sys
 import os
 
-# Add the root directory to path so it can find the utils folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.database import init_connection
 
@@ -12,12 +11,22 @@ st.set_page_config(page_title="Admissions | Tiny Tots", page_icon="📝", layout
 st.title("📝 New Student Admission")
 st.markdown("Fill out the details below. Mandatory fields are marked with an asterisk (*).")
 
-# Connect to database
 try:
     settings_sheet, admissions_sheet, fees_sheet = init_connection()
 except Exception as e:
     st.error("Database connection failed. Please check your utils/database.py file.")
     st.stop()
+
+# --- AUTO-GENERATE UNIQUE ID LOGIC ---
+# Read all existing Form Numbers from the Google Sheet (skipping the header)
+existing_forms = admissions_sheet.col_values(1)[1:]
+
+# Find all actual numbers and calculate the next one
+valid_numbers = [int(num) for num in existing_forms if num.isdigit()]
+if valid_numbers:
+    next_form_no = str(max(valid_numbers) + 1)
+else:
+    next_form_no = "101" # If the sheet is empty, it starts at 101
 
 with st.form("admission_form"):
     
@@ -25,8 +34,18 @@ with st.form("admission_form"):
     
     with tab1:
         st.subheader("Student Details")
+        
+        st.markdown("**📸 Student Photo**")
+        photo_option = st.radio("Choose photo method:", ["Upload File", "Take Picture (Camera)"], horizontal=True)
+        if photo_option == "Upload File":
+            student_photo = st.file_uploader("Select an image file", type=['jpg', 'jpeg', 'png'])
+        else:
+            student_photo = st.camera_input("Take a picture")
+        st.markdown("---")
+        
         col1, col2, col3 = st.columns(3)
-        form_no = col1.text_input("Form No *")
+        # THE FIX: The Form No is now Auto-Generated and Locked (disabled=True)
+        form_no = col1.text_input("Form No (Auto-Generated) 🔒", value=next_form_no, disabled=True)
         adm_date = col2.date_input("Admission Date")
         class_name = col3.selectbox("Class *", ["Playgroup", "Nursery", "LKG", "UKG", "Prep Batch"])
         
@@ -88,7 +107,6 @@ with st.form("admission_form"):
 
     with tab3:
         st.subheader("Financial Setup")
-        st.info("💡 Enter the fee amounts below. The system will automatically calculate the total.")
         
         col12, col13 = st.columns(2)
         ac_year = col12.selectbox("Academic Year *", ["2026-2027", "2027-2028", "2028-2029"])
@@ -104,14 +122,12 @@ with st.form("admission_form"):
         
         status = st.selectbox("Current Status", ["Active", "Dropped", "Promoted"])
         
-        # THE BUTTON IS NOW HIDDEN AT THE BOTTOM OF TAB 3
         st.markdown("---")
         submitted = st.form_submit_button("💾 Finalize & Save Admission Record", type="primary", use_container_width=True)
 
-# --- Form Logic & Validation ---
 if submitted:
-    if not form_no or not child_name or not address:
-        st.error("⚠️ Please fill in all mandatory fields (Form No, Child Name, Address) on Tab 1.")
+    if not child_name or not address:
+        st.error("⚠️ Please fill in all mandatory fields (Child Name, Address) on Tab 1.")
     elif len(f_contact) > 0 and (len(f_contact) != 10 or not f_contact.isdigit()):
         st.error("⚠️ Father's contact on Tab 2 must be exactly 10 digits.")
     elif len(m_contact) > 0 and (len(m_contact) != 10 or not m_contact.isdigit()):
@@ -119,35 +135,19 @@ if submitted:
     elif len(f_contact) == 0 and len(m_contact) == 0:
         st.error("⚠️ Please provide at least one parent's contact number on Tab 2.")
     else:
-        with st.spinner("Checking records and saving..."):
+        with st.spinner("Encrypting and saving to database..."):
             
-            # --- THE NEW DUPLICATE CATCHER ---
-            # Grab all existing form numbers from the database
-            existing_forms = admissions_sheet.col_values(1)
-            
-            # Check if the typed form number is already in the list
-            if form_no in existing_forms[1:]:
-                st.error(f"⚠️ STOP! Form Number '{form_no}' is already assigned to another student. Please use a unique ID.")
+            total_payable = base_tuition + book_fees + activity_fees + uniform_fees
+            if fee_plan == "Two Installments (+₹2000)":
+                total_payable += 2000
+                actual_tuition_saved = base_tuition + 2000
             else:
-                # If it is unique, proceed with the math and saving
-                total_payable = base_tuition + book_fees + activity_fees + uniform_fees
-                if fee_plan == "Two Installments (+₹2000)":
-                    total_payable += 2000
-                    actual_tuition_saved = base_tuition + 2000
-                else:
-                    actual_tuition_saved = base_tuition
-                
-                row_data = [
-                    form_no, str(adm_date), class_name, child_name, nickname, str(dob), gender, nationality, pob, 
-                    lang1, lang2, allergies, address, f_name, f_contact, f_email, f_qual, f_prof, f_desig, 
-                    m_name, m_contact, m_email, m_qual, m_prof, m_desig, g1_name, g1_contact, g1_rel, 
-                    g2_name, g2_contact, g2_rel, sib_name, sib_details, em1, em2, em3, ac_year, fee_plan, 
-                    actual_tuition_saved, book_fees, activity_fees, uniform_fees, total_payable, status
-                ]
-                
-                try:
-                    admissions_sheet.append_row(row_data)
-                    st.success(f"✅ Successfully registered {child_name}! Total Fees Locked at ₹{total_payable}.")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"⚠️ Error saving to database: {e}")
+                actual_tuition_saved = base_tuition
+            
+            row_data = [
+                form_no, str(adm_date), class_name, child_name, nickname, str(dob), gender, nationality, pob, 
+                lang1, lang2, allergies, address, f_name, f_contact, f_email, f_qual, f_prof, f_desig, 
+                m_name, m_contact, m_email, m_qual, m_prof, m_desig, g1_name, g1_contact, g1_rel, 
+                g2_name, g2_contact, g2_rel, sib_name, sib_details, em1, em2, em3, ac_year, fee_plan, 
+                actual_tuition_saved, book_fees, activity_fees, uniform_fees, total_payable, status
+            ]
